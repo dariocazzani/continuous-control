@@ -1,7 +1,8 @@
 from unityagents import UnityEnvironment
 import numpy as np
+from tqdm import tqdm
 
-env = UnityEnvironment(file_name='Reacher_Linux/Reacher.x86_64')
+env = UnityEnvironment(file_name='_Reacher_Linux/Reacher.x86_64')
 
 brain_name = env.brain_names[0]
 brain = env.brains[brain_name]
@@ -54,21 +55,22 @@ def decide_actions(observation, params):
 
 if __name__ == "__main__":
     params = np.load('best_params.npy')
-    env_info = env.reset(train_mode=True)[brain_name]
-    observation = env_info.vector_observations
+    NUM_TRIALS = 4
     total_reward = np.zeros(num_agents)
-    while True:
-        
-        action = decide_actions(observation, [params])
-        action = [action]*num_agents
-        
-        env_info = env.step(np.squeeze(np.asarray(action)))[brain_name] 
+    for _ in tqdm(range(NUM_TRIALS)):
+        env_info = env.reset(train_mode=True)[brain_name]
         observation = env_info.vector_observations
-        reward = np.asarray(env_info.rewards)
-        dones = np.asarray(env_info.local_done)
+        while True:
+            action = decide_actions(observation, [params])
+            action = [action]*num_agents
+            
+            env_info = env.step(np.squeeze(np.asarray(action)))[brain_name] 
+            observation = env_info.vector_observations
+            reward = np.asarray(env_info.rewards)
+            dones = np.asarray(env_info.local_done)
 
-        total_reward += reward
-        
-        if np.any(dones):
-            break
-    print("Total reward: {}".format(total_reward))
+            total_reward += reward
+            
+            if np.any(dones):
+                break
+    print("Total reward: {}".format(total_reward/NUM_TRIALS))
