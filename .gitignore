@@ -2,3 +2,5 @@
 unity-env*
 .vscode
 *npy
+__pycache__
+*bin
