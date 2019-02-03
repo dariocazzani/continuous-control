@@ -33,6 +33,8 @@ num_bias_hidden = _NUM_ACTIONS
 _NUM_PARAMS = num_weights_in + num_bias_in + num_weights_hidden + num_bias_hidden
 
 ES_PATH = 'es.bin'
+REWARDS_PATH = 'rewards.npy'
+GENERATION_PATH = 'generations.npy'
 
 def get_weights_bias(params):
     """
@@ -130,22 +132,24 @@ def play(params, num_trials, train_mode=True):
     return - (agents_reward / num_trials)
 
 def train():
-    if not os.path.exists(ES_PATH):
+    if not os.path.exists(ES_PATH) or not os.path.exists(GENERATION_PATH) or not os.path.exists(REWARDS_PATH):
         es = cma.CMAEvolutionStrategy(_NUM_PARAMS * [0], 0.1, {'popsize': num_agents})
+        rewards_through_gens = []
+        generation = 1
     else:
         es = joblib.load(ES_PATH)
+        rewards_through_gens = np.load(REWARDS_PATH)
+        generation = np.load(GENERATION_PATH)
 
-    rewards_through_gens = []
-    generation = 1
     max_avg_rewards = 0
+    # Linear schedule for num_trials (line passing across (1,1)  and (30,100))
+    m = 99./29.
+    b = -70./29
     try:
-        while max_avg_rewards < 32:
+        while max_avg_rewards < 31:
 
             # Run quickly at the beginning
-            if max_avg_rewards < 10:
-                num_trials = 1
-            else:
-                num_trials = min(100, int(max_avg_rewards * 4))
+            num_trials = max(1, int(max_avg_rewards*m + b))
 
             solutions = es.ask()
             rewards = play(solutions, num_trials)
@@ -170,13 +174,15 @@ def train():
             print("Avg reward: {:.3f}".format(mean_avg_rewards))
             print("**************\n")
 
+            generation+=1
+            rewards_through_gens.append(rewards)
+
             if generation % 50 == 0:
                 print("Saving es to {}".format(ES_PATH))
                 joblib.dump(es, ES_PATH, compress=1)
-                np.save('rewards', rewards_through_gens)
+                np.save(REWARDS_PATH, rewards_through_gens)
+                np.save(GENERATION_PATH, generation)
 
-            generation+=1
-            rewards_through_gens.append(rewards)
 
 
     except (KeyboardInterrupt, SystemExit):
