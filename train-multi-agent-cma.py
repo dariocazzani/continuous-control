@@ -1,6 +1,7 @@
 import numpy as np
 import time, os, joblib, cma
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from unityagents import UnityEnvironment
 
@@ -30,8 +31,10 @@ _STATE_SIZE = states.shape[1]
 _NUM_ACTIONS = brain.vector_action_space_size
 
 _ES_PATH = 'es.bin'
-_REWARDS_PATH = 'rewards.npy'
+_REWARDS_PATH = 'rewards.bin'
 _GENERATION_PATH = 'generations.npy'
+_EXPECTED_REWARD = 31
+_MIN_NUM_TRIALS = 8
 
 def play(actor, params, num_trials, train_mode=True):
     agents_reward = np.zeros(len(params))
@@ -71,8 +74,12 @@ def train():
         generation = 1
     else:
         es = joblib.load(_ES_PATH)
-        rewards_through_gens = np.load(_REWARDS_PATH)
+        rewards_through_gens = joblib.load(_REWARDS_PATH)
         generation = np.load(_GENERATION_PATH)
+
+        plt.plot(rewards_through_gens)
+        plt.show()
+
 
     max_avg_rewards = 0
     best_so_far = 0
@@ -80,10 +87,10 @@ def train():
     m = 99./29.
     b = -70./29
     try:
-        while max_avg_rewards < 31:
+        while max_avg_rewards < _EXPECTED_REWARD:
 
             # Run quickly at the beginning
-            num_trials = max(8, int(max_avg_rewards*m + b))
+            num_trials = max(_MIN_NUM_TRIALS, int(max_avg_rewards*m + b))
 
             solutions = es.ask()
             rewards = play(actor, solutions, num_trials)
@@ -109,7 +116,7 @@ def train():
                 best_so_far = max_avg_rewards
                 print("Saving es to {}".format(_ES_PATH))
                 joblib.dump(es, _ES_PATH, compress=1)
-                np.save(_REWARDS_PATH, rewards_through_gens)
+                joblib.dump(rewards_through_gens, _REWARDS_PATH, compress=1)
                 np.save(_GENERATION_PATH, generation)
 
     except (KeyboardInterrupt, SystemExit):
