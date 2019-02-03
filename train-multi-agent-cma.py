@@ -4,6 +4,11 @@ from tqdm import tqdm
 
 from unityagents import UnityEnvironment
 
+from actor import Actor
+
+"""
+Initialize environments
+"""
 env = UnityEnvironment(file_name='Reacher_Linux/Reacher.x86_64')
 
 brain_name = env.brain_names[0]
@@ -22,88 +27,13 @@ print('Size of each action:', action_size)
 states = env_info.vector_observations
 
 _STATE_SIZE = states.shape[1]
-_NUM_HIDDEN_NEURONS =  4
 _NUM_ACTIONS = brain.vector_action_space_size
 
-num_weights_in = _STATE_SIZE*_NUM_HIDDEN_NEURONS
-num_bias_in = _NUM_HIDDEN_NEURONS
-num_weights_hidden = _NUM_HIDDEN_NEURONS * _NUM_ACTIONS
-num_bias_hidden = _NUM_ACTIONS
+_ES_PATH = 'es.bin'
+_REWARDS_PATH = 'rewards.npy'
+_GENERATION_PATH = 'generations.npy'
 
-_NUM_PARAMS = num_weights_in + num_bias_in + num_weights_hidden + num_bias_hidden
-
-ES_PATH = 'es.bin'
-REWARDS_PATH = 'rewards.npy'
-GENERATION_PATH = 'generations.npy'
-
-def get_weights_bias(params):
-    """
-        params: list of lenght "num_agents" of parameters for the "brain"
-    """
-    agents_weights_in = []
-    agents_weights_hidden = []
-    agents_bias_in = []
-    agents_bias_hidden = []
-
-    for p in params:
-        p = list(p)
-        weights_in = p[:num_weights_in]
-        del p[:num_weights_in]
-        weights_in = np.reshape(weights_in, [_STATE_SIZE, _NUM_HIDDEN_NEURONS])
-        agents_weights_in.append(weights_in)
-
-        bias_in = p[:num_bias_in]
-        del p[:num_bias_in]
-        agents_bias_in.append(bias_in)
-        
-        weights_hidden = p[:num_weights_hidden]
-        del p[:num_weights_hidden]
-        weights_hidden = np.reshape(weights_hidden, [_NUM_HIDDEN_NEURONS, _NUM_ACTIONS])
-        agents_weights_hidden.append(weights_hidden)
-
-        bias_hidden = p[:num_bias_hidden]
-        del p[:num_bias_hidden]
-        agents_bias_hidden.append(bias_hidden)
-        
-    return agents_weights_in, agents_bias_in, agents_weights_hidden, agents_bias_hidden
-
-def decide_actions(observation, params):
-    agents_weights_in, agents_bias_in, agents_weights_hidden, agents_bias_hidden = get_weights_bias(params)
-    
-    predictions = []
-    for idx, w in enumerate(agents_weights_in):
-        hidden_layer = np.tanh(np.matmul(np.squeeze(observation[idx]), w) + agents_bias_in[idx])
-        prediction = np.matmul(hidden_layer, agents_weights_hidden[idx]) + agents_bias_hidden[idx]
-        prediction = np.tanh(prediction)
-        predictions.append(prediction)
-    return predictions
-
-# def get_weights_bias(params):
-#     """
-#         params: list of lenght "num_agents" of parameters for the "brain"
-#     """
-#     agents_weights = []
-#     agents_bias = []
-    
-#     for p in params:
-#         weights = p[:_NUM_PARAMS - _NUM_ACTIONS]
-#         bias = p[-_NUM_ACTIONS:]
-#         weights = np.reshape(weights, [_STATE_SIZE, _NUM_ACTIONS])
-#         agents_weights.append(weights)
-#         agents_bias.append(bias)
-#     return agents_weights, agents_bias
-
-# def decide_actions(observation, params):
-#     agents_weights, agents_bias = get_weights_bias(params)
-    
-#     predictions = []
-#     for idx, w in enumerate(agents_weights):
-#         prediction = np.matmul(np.squeeze(observation[idx]), w) + agents_bias[idx]
-#         prediction = np.tanh(prediction)
-#         predictions.append(prediction)
-#     return predictions
-
-def play(params, num_trials, train_mode=True):
+def play(actor, params, num_trials, train_mode=True):
     agents_reward = np.zeros(len(params))
     for _ in tqdm(range(num_trials)):
         env_info = env.reset(train_mode=train_mode)[brain_name]
@@ -113,7 +43,7 @@ def play(params, num_trials, train_mode=True):
         steps = 0
         while True:
             
-            action = decide_actions(observation, params)
+            action = actor.decide_actions(observation, params)
             
             env_info = env.step(np.asarray(action))[brain_name] 
             observation = env_info.vector_observations
@@ -131,17 +61,21 @@ def play(params, num_trials, train_mode=True):
     # Average agents' rewards across num_trials
     return - (agents_reward / num_trials)
 
+
 def train():
-    if not os.path.exists(ES_PATH) or not os.path.exists(GENERATION_PATH) or not os.path.exists(REWARDS_PATH):
-        es = cma.CMAEvolutionStrategy(_NUM_PARAMS * [0], 0.1, {'popsize': num_agents})
+    actor = Actor(_STATE_SIZE, _NUM_ACTIONS)
+
+    if not os.path.exists(_ES_PATH) or not os.path.exists(_GENERATION_PATH) or not os.path.exists(_REWARDS_PATH):
+        es = cma.CMAEvolutionStrategy(actor.get_num_params() * [0], 0.1, {'popsize': num_agents})
         rewards_through_gens = []
         generation = 1
     else:
-        es = joblib.load(ES_PATH)
-        rewards_through_gens = np.load(REWARDS_PATH)
-        generation = np.load(GENERATION_PATH)
+        es = joblib.load(_ES_PATH)
+        rewards_through_gens = np.load(_REWARDS_PATH)
+        generation = np.load(_GENERATION_PATH)
 
     max_avg_rewards = 0
+    best_so_far = 0
     # Linear schedule for num_trials (line passing across (1,1)  and (30,100))
     m = 99./29.
     b = -70./29
@@ -149,10 +83,10 @@ def train():
         while max_avg_rewards < 31:
 
             # Run quickly at the beginning
-            num_trials = max(1, int(max_avg_rewards*m + b))
+            num_trials = max(8, int(max_avg_rewards*m + b))
 
             solutions = es.ask()
-            rewards = play(solutions, num_trials)
+            rewards = play(actor, solutions, num_trials)
             
             es.tell(solutions, rewards)
 
@@ -160,12 +94,6 @@ def train():
             min_avg_rewards = np.min(rewards)
             max_avg_rewards = np.max(rewards)
             mean_avg_rewards = np.mean(rewards)
-            
-            if min_avg_rewards > 8:
-                num_trials = 50
-
-            if min_avg_rewards > 20:
-                num_trials = 100
 
             print("\n**************")
             print("Generation: {}".format(generation))
@@ -177,13 +105,12 @@ def train():
             generation+=1
             rewards_through_gens.append(rewards)
 
-            if generation % 50 == 0:
-                print("Saving es to {}".format(ES_PATH))
-                joblib.dump(es, ES_PATH, compress=1)
-                np.save(REWARDS_PATH, rewards_through_gens)
-                np.save(GENERATION_PATH, generation)
-
-
+            if max_avg_rewards > best_so_far:
+                best_so_far = max_avg_rewards
+                print("Saving es to {}".format(_ES_PATH))
+                joblib.dump(es, _ES_PATH, compress=1)
+                np.save(_REWARDS_PATH, rewards_through_gens)
+                np.save(_GENERATION_PATH, generation)
 
     except (KeyboardInterrupt, SystemExit):
         print("Manual Interrupt")
