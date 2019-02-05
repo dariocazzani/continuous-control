@@ -33,7 +33,7 @@ _NUM_ACTIONS = brain.vector_action_space_size
 _ES_PATH = 'es.bin'
 _REWARDS_PATH = 'rewards.bin'
 _GENERATION_PATH = 'generations.npy'
-_EXPECTED_REWARD = 31
+_EXPECTED_REWARD = 40
 _MIN_NUM_TRIALS = 8
 
 def play(actor, params, num_trials, train_mode=True):
@@ -90,7 +90,8 @@ def train():
         while max_avg_rewards < _EXPECTED_REWARD:
 
             # Run quickly at the beginning
-            num_trials = max(_MIN_NUM_TRIALS, int(max_avg_rewards*m + b))
+            # num_trials = max(_MIN_NUM_TRIALS, int(max_avg_rewards*m + b))
+            num_trials = _MIN_NUM_TRIALS
 
             solutions = es.ask()
             rewards = play(actor, solutions, num_trials)
