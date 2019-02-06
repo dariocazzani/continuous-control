@@ -1,8 +1,7 @@
 import sys
-import random
-from collections import namedtuple, deque
+from collections import deque
 
-import tqdm
+from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -10,52 +9,55 @@ import torch.nn as nn
 import torch.optim as optim
 from unityagents import UnityEnvironment
 
-from IPython.display import clear_output
+from model import PPONetwork
+from utils import Batcher
 
-from model import PPOPolicyNetwork
-from agent import PPOAgent
+import argparse
+parser = argparse.ArgumentParser(description='PPO for Reacher')
+parser.add_argument('--device', type=str, default='cuda',
+                    help="Select device for training and inference")
+parser.add_argument('--discount-rate', type=float, default=0.99,
+                    help='')
+parser.add_argument('--tau', type=float, default=0.95,
+                    help='')
+parser.add_argument('--gradient-clip', type=float, default=5,
+                    help='')
+parser.add_argument('--rollout-length', type=int, default=2048,
+                    help='')
+parser.add_argument('--ppo-epochs', type=int, default=10,
+                    help='')
+parser.add_argument('--ppo-clip', type=float, default=2.0,
+                    help='')
+parser.add_argument('--batch-size', type=int, default=32,
+                    help='')
+parser.add_argument('--entropy-coefficent', type=float, default=1E-2,
+                    help='')
+parser.add_argument('--num-episodes', type=int, default=250,
+                    help='')
+parser.add_argument('--learning-rate', type=float, default=3E-4,
+                    help='')
+parser.add_argument('--hidden-units', type=int, default=512,
+                help='')
+args = parser.parse_args()
 
-env = UnityEnvironment(file_name='../continuous-control/Reacher_Linux/Reacher.x86_64')
+
+env = UnityEnvironment(file_name='../Reacher_Linux/Reacher.x86_64')
 brain_name = env.brain_names[0]
 brain = env.brains[brain_name]
 env_info = env.reset(train_mode=True)[brain_name]
 
-config = {
-    'environment': {
-        'state_size':  env_info.vector_observations.shape[1],
-        'action_size': brain.vector_action_space_size,
-        'number_of_agents': len(env_info.agents)
-    },
-    'pytorch': {
-        'device': torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    },
-    'hyperparameters': {
-        'discount_rate': 0.99,
-        'tau': 0.95,
-        'gradient_clip': 5,
-        'rollout_length': 2048,
-        'optimization_epochs': 10,
-        'ppo_clip': 0.2,
-        'log_interval': 2048,
-        'max_steps': 1e5,
-        'mini_batch_number': 32,
-        'entropy_coefficent': 0.01,
-        'episode_count': 250,
-        'hidden_size': 512,
-        'adam_learning_rate': 3e-4,
-        'adam_epsilon': 1e-5
-    }
-}
+_STATE_SIZE = env_info.vector_observations.shape[1]
+_NUM_ACTIONS = brain.vector_action_space_size
+_NUM_AGENTS = len(env_info.agents)
 
-def play_round(env, brain_name, policy, config):
+def play(policy, args):
     env_info = env.reset(train_mode=True)[brain_name]    
     states = env_info.vector_observations                 
-    scores = np.zeros(config['environment']['number_of_agents'])                         
+    scores = np.zeros(_NUM_AGENTS)                         
     while True:
-        actions, _, _, _ = policy(torch.FloatTensor(states).to(config['pytorch']['device']))
+        actions, _, _, _ = policy(torch.FloatTensor(states).to(args.device))
         env_info = env.step(actions.cpu().detach().numpy())[brain_name]
         next_states = env_info.vector_observations         
-        rewards = env_info.rewards                         
         dones = env_info.local_done                     
         scores += env_info.rewards                      
         states = next_states                               
@@ -63,31 +65,91 @@ def play_round(env, brain_name, policy, config):
             break
     
     return np.mean(scores)
-    
-def ppo(env, brain_name, policy, config, train):
-    if train:
-        optimizier = optim.Adam(policy.parameters(), config['hyperparameters']['adam_learning_rate'], 
-                        eps=config['hyperparameters']['adam_epsilon'])
-        agent = PPOAgent(env, brain_name, policy, optimizier, config)
-        all_scores = []
-        averages = []
-        last_max = 30.0
-        
-        for i in tqdm.tqdm(range(config['hyperparameters']['episode_count'])):
-            agent.step()
-            last_mean_reward = play_round(env, brain_name, policy, config)
-            last_average = np.mean(np.array(all_scores[-100:])) if len(all_scores) > 100 else np.mean(np.array(all_scores))
-            all_scores.append(last_mean_reward)
-            averages.append(last_average)
-            if last_average > last_max:
-                torch.save(policy.state_dict(), "models/ppo-max-hiddensize-{config['hyperparameters']['hidden_size']}.pth")
-                last_max = last_average
-            clear_output(True)
-            print('Episode: {} Total score this episode: {} Last {} average: {}'.format(i + 1, last_mean_reward, min(i + 1, 100), last_average))
-        return all_scores, averages
-    else:
-        score = play_round(env, brain_name, policy, config)
-        return [score], [score]
 
-new_policy = PPOPolicyNetwork(config)
-all_scores, average_scores = ppo(env, brain_name, new_policy, config, train=True)
+def ppo_update(args, policy, optimizer, processed_rollout):
+    # Create batch 
+    states, actions, log_probs_old, returns, advantages = list(map(lambda x: torch.cat(x, dim=0), zip(*processed_rollout)))
+    # Normalize advantages
+    advantages = (advantages - advantages.mean()) / advantages.std()
+
+    memory_size = int(states.shape[0])
+    batcher = Batcher(memory_size // args.batch_size, [np.arange(memory_size)])
+    for _ in range(args.ppo_epochs):
+        batcher.shuffle()
+        while not batcher.end():
+            b = batcher.next_batch()[0]
+            b = torch.Tensor(b).long()
+  
+            _, log_probs, entropy_loss, values = policy(states[b], actions[b])
+            ratio = (log_probs - log_probs_old[b]).exp() # pnew / pold
+            surr1 = ratio * advantages[b]
+            surr2 = torch.clamp(surr1, 1.0 - args.ppo_clip, 1.0 + args.ppo_clip) * advantages[b]
+            policy_surr = -torch.min(surr1, surr2).mean() - (entropy_loss.to(args.device) * args.entropy_coefficent).mean()
+
+            value_loss = 0.5 * (returns[b] - values).pow(2.).mean()
+            optimizer.zero_grad()
+            (policy_surr + value_loss).backward()
+            nn.utils.clip_grad_norm_(policy.parameters(), 5)
+            optimizer.step()
+
+    return optimizer, policy
+
+def process_rollout(rollout, last_value):
+    processed_rollout = [None] * (len(rollout) - 1)
+    advantages = torch.FloatTensor(np.zeros((_NUM_AGENTS, 1))).to(args.device)
+    returns = last_value.detach()
+    for i in reversed(range(len(rollout) - 1)):
+        states, value, actions, log_probs, rewards, terminals = rollout[i]
+        terminals = torch.FloatTensor(terminals).unsqueeze(1).to(args.device)
+        rewards = torch.FloatTensor(rewards).unsqueeze(1).to(args.device)
+        actions = actions
+        states = torch.FloatTensor(states).to(args.device)
+        next_value = rollout[i + 1][1]
+        returns = rewards + args.discount_rate * terminals * returns
+
+        td_error = rewards + args.discount_rate * terminals * next_value.detach() - value.detach()
+        advantages = advantages * args.tau * args.discount_rate * terminals + td_error
+        processed_rollout[i] = [states, actions, log_probs, returns, advantages]
+    return processed_rollout
+
+def run_rollout(policy, args):
+        rollout = []
+
+        env_info = env.reset(train_mode=True)[brain_name]    
+        states = env_info.vector_observations  
+        for _ in range(args.rollout_length):
+            actions, log_probs, _, values = policy(torch.FloatTensor(states).to(args.device))
+            env_info = env.step(actions.cpu().detach().numpy())[brain_name]
+            next_states = env_info.vector_observations
+            rewards = env_info.rewards
+            terminals = np.array([1 if t else 0 for t in env_info.local_done])
+                    
+            rollout.append([states, values.detach(), actions.detach(), log_probs.detach(), rewards, 1 - terminals])
+            states = next_states
+
+        last_value = policy(torch.FloatTensor(states).to(args.device))[-1]
+        rollout.append([states, last_value, None, None, None, None])
+        return rollout, last_value
+
+def train(policy, args):
+    optimizer = optim.Adam(policy.parameters(), args.learning_rate, eps=1E-5)
+    min_episodes = 100
+    scores = deque(maxlen=min_episodes)
+    
+    for episode in tqdm(range(args.num_episodes)):
+        rollout, last_value = run_rollout(policy, args)
+    
+        processed_rollout = process_rollout(rollout, last_value)
+
+        optimizer, policy = ppo_update(args, policy, optimizer, processed_rollout)
+            
+        mean_reward = play(policy, args)
+        scores.append(mean_reward)
+        print('Episode: {} Total score this episode: {} Average: {}'.format(episode+1, mean_reward, np.mean(scores)))
+    
+    torch.save(policy.state_dict(), "ppo.pt")
+
+if __name__ == "__main__":    
+    policy = PPONetwork(args, _STATE_SIZE, _NUM_ACTIONS)
+    policy.to(args.device)
+    train(policy, args)

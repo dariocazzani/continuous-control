@@ -4,12 +4,8 @@
 # declaration at the top                                              #
 #######################################################################
 
-# Modified by Jeremi Kaczmarczyk (jeremi.kaczmarczyk@gmail.com) 2018 
-# For Udacity Deep Reinforcement Learning Nanodegree
-
 import numpy as np
 import torch.nn as nn
-
 
 class Batcher:
     
