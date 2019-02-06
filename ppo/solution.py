@@ -117,8 +117,7 @@ def run_rollout(policy, args):
 
         env_info = env.reset(train_mode=True)[brain_name]    
         states = env_info.vector_observations  
-        # for _ in range(args.rollout_length):
-        while True:
+        for _ in range(args.rollout_length):
             actions, log_probs, _, values = policy(torch.FloatTensor(states).to(args.device))
             env_info = env.step(actions.cpu().detach().numpy())[brain_name]
             next_states = env_info.vector_observations
@@ -127,9 +126,7 @@ def run_rollout(policy, args):
                     
             rollout.append([states, values.detach(), actions.detach(), log_probs.detach(), rewards, 1 - terminals])
             states = next_states
-            if np.any(terminals):                                  
-                break
-    
+        
         last_value = policy(torch.FloatTensor(states).to(args.device))[-1]
         rollout.append([states, last_value, None, None, None, None])
         return rollout, last_value
