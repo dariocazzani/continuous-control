@@ -32,7 +32,7 @@ parser.add_argument('--batch-size', type=int, default=32,
                     help='')
 parser.add_argument('--entropy-coefficent', type=float, default=1E-2,
                     help='')
-parser.add_argument('--num-episodes', type=int, default=250,
+parser.add_argument('--required-reward', type=float, default=30,
                     help='')
 parser.add_argument('--learning-rate', type=float, default=3E-4,
                     help='')
@@ -117,7 +117,8 @@ def run_rollout(policy, args):
 
         env_info = env.reset(train_mode=True)[brain_name]    
         states = env_info.vector_observations  
-        for _ in range(args.rollout_length):
+        # for _ in range(args.rollout_length):
+        while True:
             actions, log_probs, _, values = policy(torch.FloatTensor(states).to(args.device))
             env_info = env.step(actions.cpu().detach().numpy())[brain_name]
             next_states = env_info.vector_observations
@@ -126,29 +127,55 @@ def run_rollout(policy, args):
                     
             rollout.append([states, values.detach(), actions.detach(), log_probs.detach(), rewards, 1 - terminals])
             states = next_states
-
+            if np.any(terminals):                                  
+                break
+    
         last_value = policy(torch.FloatTensor(states).to(args.device))[-1]
         rollout.append([states, last_value, None, None, None, None])
         return rollout, last_value
 
 def train(policy, args):
-    optimizer = optim.Adam(policy.parameters(), args.learning_rate, eps=1E-5)
+    optimizer = optim.Adam(policy.parameters(), args.learning_rate)#, eps=1E-5)
     min_episodes = 100
     scores = deque(maxlen=min_episodes)
     
-    for episode in tqdm(range(args.num_episodes)):
-        rollout, last_value = run_rollout(policy, args)
-    
-        processed_rollout = process_rollout(rollout, last_value)
+    episode = 1
+    current_rewards = []
+    moving_avg_rewards = []
+    try:
+        while True: # Train until requirements are satisfied
+            rollout, last_value = run_rollout(policy, args)
+        
+            processed_rollout = process_rollout(rollout, last_value)
 
-        optimizer, policy = ppo_update(args, policy, optimizer, processed_rollout)
-            
-        mean_reward = play(policy, args)
-        scores.append(mean_reward)
-        print('Episode: {} Total score this episode: {} Average: {}'.format(episode+1, mean_reward, np.mean(scores)))
+            optimizer, policy = ppo_update(args, policy, optimizer, processed_rollout)
+                
+            mean_reward = play(policy, args)
+            scores.append(mean_reward)
+            current_rewards.append(mean_reward)
+            moving_avg_rewards.append(np.mean(scores))
+            print('Episode: {} Current score: {:.2f} Average last {}: {:.2f}'.format(
+                                    episode, mean_reward, min_episodes, np.mean(scores)))
+            episode += 1
+            if len(scores) == min_episodes and np.mean(scores) >= args.required_reward:
+                print("Required met. Finishing and saving")
+                break
+            plt.clf()
+            plt.plot(range(len(current_rewards)), current_rewards, label='Rewards')
+            plt.plot(range(len(current_rewards)), moving_avg_rewards, label='Moving Average')
+            plt.xlabel('Episodes', fontsize=18)
+            plt.ylabel('Reward', fontsize=18)
+            plt.legend(loc='best', shadow=True, fancybox=True)
+            plt.pause(0.005)
     
+    except KeyboardInterrupt:
+        print("Manual Interrupt")
+    except Exception as e:
+        print("Something went wrong: {}".format(e))
+
     torch.save(policy.state_dict(), "ppo.pt")
-
+    plt.show()
+    
 if __name__ == "__main__":    
     policy = PPONetwork(args, _STATE_SIZE, _NUM_ACTIONS)
     policy.to(args.device)
