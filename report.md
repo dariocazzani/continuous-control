@@ -83,10 +83,20 @@
     The advantage function is answering the question: <br>_How much better was the action that I took based on the expectation of what would normally happen in the state that I am currently in?_
     <br><br>
     
-    By multiplying the log probability of the policy actions with the advantage function, we get the final optimization objecting that is used in policy gradient
+    By multiplying the log probability of the policy actions with the advantage function, we get the final optimization objecting that is used in policy gradient. (See point 6 in the following table)
    
     ![Vanilla](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/vanilla%20policy%20gradient.svg)
-
+    
+  * ### Problem and a possible solution:
+    If we keep running the gradient descent on 1 batch of collected experience, we would en up updating the parameters of the Neural Net so far out of the range from where the data was collected, that the advantage function (which is already an estimate), is going to be completely wrong.<br>
+    
+    **TRPO**: To solve this issue one sucessfull approach is to tmake sure that if you are updating the policy you are never going to move too far away from the old policy. <br>
+    This idea is at the core of TRPO, which is where **PPO** takes inspiration from. <br>
+    To make sure that the updated policy doesn't move too far away from the current policy, TRPO ads a `KL` constraint to the optimization objective.<br>
+    This `KL` constraint adds some overhead and can sometimes lead to very undesirable trainig behavior.
+    
+  * ### PPO:
+    
 
 ## 3. Plot of Rewards
 
