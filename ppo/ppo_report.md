@@ -67,4 +67,18 @@ blahblah
    
 ![testing](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/test.png)
      
-   
+
+## 4. Ideas for Future Work
+
+* **Hyperparameters**: I hand tuned each hyperparameter. I found that even a small change on the batch size or the learning rate would result in the policy not to converge to good results.
+
+    As future work I'd like to experiment with some `Black Box Optimization` algorithms for fine-tuning the hyperparameters and hopefully understand if there exist a set of them that would provide good results even with small pertubations in their values
+
+* **Network size and a different learning algorithm**: The Neural Network used as the "Agent's brain" is quite big despite the small size of the observations state; roughly **282,000 weights**.
+
+    I decided to experiment with **CMA-ES** to learn a policy directly from the observation state. Because it is a black box optimization algorithm, I could train directly a small linear regression network with a total of only **136 weights**. 
+    It showed promising results since it got a maximum **average reward of 23**. 
+    Quite remarkable considering that the network is 3 orders of magnitude smaller than the Network found with PPO.
+
+    I'd like to continue looking into the CMA-ES solution and hopefully get to a score that meets the criteria for passing.
+    For now I am happy with the PPO and the promising results of CMA-ES.
