@@ -37,5 +37,5 @@ class PPONetwork(nn.Module):
             action = dist.sample()
         log_prob = dist.log_prob(action)
         log_prob = torch.sum(log_prob, dim=1, keepdim=True)
-        # return action, log_prob, torch.Tensor(np.zeros((log_prob.size(0), 1))), state_values
+       
         return action, log_prob, torch.zeros(log_prob.size(0), 1), state_values

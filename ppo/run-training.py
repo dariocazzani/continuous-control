@@ -132,7 +132,7 @@ def run_rollout(policy, args):
         return rollout, last_value
 
 def train(policy, args):
-    optimizer = optim.Adam(policy.parameters(), args.learning_rate)#, eps=1E-5)
+    optimizer = optim.Adam(policy.parameters(), args.learning_rate)
     
     episode = 1
     current_rewards = []
