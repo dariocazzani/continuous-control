@@ -43,7 +43,14 @@
    
      * [x] **Finally at line `147` we play a round with the current policy and compute the total average for all agents.**
      
-     
-     
+* ### The repository includes functional, well-documented, and organized code for training the agent.
+   * [x] **Check**
+   
+* ### The submission includes the saved model weights of the successful agent. 
+   * [x] **The model is saved in `ppo/ppo.pt`**
+   
+-----------------------------
+
+
      
      Final avg score for the 20 agents during training: Episode: 61 Current score: 37.94
