@@ -140,6 +140,7 @@
       **The entropy of a stochastic variable, (which is driven by an underlying probability distribution) is the average amount of bits that is needed to represent the outcome.**<br><br>
       It is a measure of how unpredictable an outcome of the variable is. So maximizing its entropy will force it to have a wide spread over all the possible options resulting in the most unpredictable outcome.
     <br>
+    
     Finally, parameters `c1` and `c2` weigh the contributions of these different parts of the cost function
       
        
