@@ -79,11 +79,13 @@
         Because this output is the output of a neural net, it's going to be a noisy estimate --> high variance.
     
     `Advangage function = discounted rewards -  baseline estimate`
-    <br>
-    The advantage function is answering the question: _How much better was the action that I took based on the expectation of what would normally happen in the state that I am currently in?_
-    <br>
+    
+    The advantage function is answering the question: <br>_How much better was the action that I took based on the expectation of what would normally happen in the state that I am currently in?_
+    <br><br>
+    
     By multiplying the log probability of the policy actions with the advantage function, we get the final optimization objecting that is used in policy gradient
    
+    ![Vanilla](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/vanilla%20policy%20gradient.svg)
 
 
 ## 3. Plot of Rewards
