@@ -133,12 +133,9 @@ def run_rollout(policy, args):
 
 def train(policy, args):
     optimizer = optim.Adam(policy.parameters(), args.learning_rate)#, eps=1E-5)
-    min_episodes = 100
-    scores = deque(maxlen=min_episodes)
     
     episode = 1
     current_rewards = []
-    moving_avg_rewards = []
     try:
         while True: # Train until requirements are satisfied
             rollout, last_value = run_rollout(policy, args)
@@ -148,32 +145,48 @@ def train(policy, args):
             optimizer, policy = ppo_update(args, policy, optimizer, processed_rollout)
                 
             mean_reward = play(policy, args)
-            scores.append(mean_reward)
             current_rewards.append(mean_reward)
-            moving_avg_rewards.append(np.mean(scores))
-            print('Episode: {} Current score: {:.2f} Average last {}: {:.2f}'.format(
-                                    episode, mean_reward, min_episodes, np.mean(scores)))
+            print('Episode: {} Current score: {:.2f}'.format(episode, mean_reward))
             episode += 1
-            if len(scores) == min_episodes and np.mean(scores) >= args.required_reward:
-                print("Required met. Finishing and saving")
-                break
+            
             plt.clf()
             plt.plot(range(len(current_rewards)), current_rewards, label='Rewards')
-            plt.plot(range(len(current_rewards)), moving_avg_rewards, label='Moving Average')
             plt.xlabel('Episodes', fontsize=18)
             plt.ylabel('Reward', fontsize=18)
             plt.legend(loc='best', shadow=True, fancybox=True)
             plt.pause(0.005)
-    
+            if mean_reward >= args.required_reward+5:
+                print("Required met. Finishing and saving")
+                break
+        plt.show()
+
     except KeyboardInterrupt:
         print("Manual Interrupt")
     except Exception as e:
         print("Something went wrong: {}".format(e))
 
     torch.save(policy.state_dict(), "ppo.pt")
-    plt.show()
+    return policy
     
+def test(policy, args):
+    print("Testing...")
+    min_episodes = 100
+    all_rewards = []
+    for _ in tqdm(range(min_episodes)):
+        mean_reward = play(policy, args)
+        all_rewards.append(mean_reward)
+        avg = np.mean(all_rewards)
+        print(avg)
+    
+    plt.plot(range(len(all_rewards)), all_rewards, label='Rewards')
+    plt.plot(range(len(all_rewards)), [avg]*len(all_rewards), label='Average')
+    plt.xlabel('Episodes', fontsize=18)
+    plt.ylabel('Reward', fontsize=18)
+    plt.legend(loc='best', shadow=True, fancybox=True)
+    plt.show()
+
 if __name__ == "__main__":    
     policy = PPONetwork(args, _STATE_SIZE, _NUM_ACTIONS)
     policy.to(args.device)
-    train(policy, args)
+    policy = train(policy, args)
+    test(policy, args)

@@ -1,29 +1,28 @@
 [//]: # (Image References)
 
-[image1]: https://user-images.githubusercontent.com/10624937/42135619-d90f2f28-7d12-11e8-8823-82b970a54d7e.gif "Trained Agent"
-[image2]: https://github.com/dariocazzani/banaNavigation/blob/master/images/scores.png
-# Project Navigation
+[image1]: https://user-images.githubusercontent.com/10624937/43851024-320ba930-9aff-11e8-8493-ee547c6af349.gif "Trained Agent"
+[image2]: https://user-images.githubusercontent.com/10624937/43851646-d899bf20-9b00-11e8-858c-29b5c2c94ccc.png "Crawler"
 
-## Introduction
-
-For this project, you will train an agent to navigate (and collect bananas!) in a large, square world.  
+### Introduction
 
 ![Trained Agent][image1]
 
-A reward of +1 is provided for collecting a yellow banana, and a reward of -1 is provided for collecting a blue banana.  Thus, the goal of your agent is to collect as many yellow bananas as possible while avoiding blue bananas.  
+In this environment, a double-jointed arm can move to target locations. A reward of +0.1 is provided for each step that the agent's hand is in the goal location. Thus, the goal of your agent is to maintain its position at the target location for as many time steps as possible.
 
-The state space has 37 dimensions and contains the agent's velocity, along with ray-based perception of objects around agent's forward direction.  Given this information, the agent has to learn how to best select actions.  Four discrete actions are available, corresponding to:
-- **`0`** - move forward.
-- **`1`** - move backward.
-- **`2`** - turn left.
-- **`3`** - turn right.
+The observation space consists of 33 variables corresponding to position, rotation, velocity, and angular velocities of the arm. Each action is a vector with four numbers, corresponding to torque applicable to two joints. Every entry in the action vector should be a number between -1 and 1.
 
-The task is episodic, and in order to solve the environment, your agent must get an average score of +13 over 100 consecutive episodes.
+### Solving the environment with 20 independent agents
+
+- After each episode, we add up the rewards that each agent received (without discounting), to get a score for each agent.  This yields 20 (potentially different) scores.  We then take the average of these 20 scores. 
+- This yields an **average score** for each episode (where the average is over all 20 agents).
+
+The environment is considered solved, when the average (over 100 episodes) of those average scores is at least +30. 
+
 
 ## Getting Started
 
-1. Download the environment the link below (For this project I used Linux)
-    - Linux: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P1/Banana/Banana_Linux.zip)
+1. Download the environment from the link below (For this project I used Linux)
+    - Linux: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P2/Reacher/Reacher_Linux.zip)
 
 2. Place the file in the root folder of the repo and decompress it.
 
@@ -31,21 +30,15 @@ The task is episodic, and in order to solve the environment, your agent must get
 
 #### Install requirements:
 ```
-conda create --name banaNavigation python=3.6
-source activate banaNavigation   
+conda create --name continuous-control python=3.6
+source activate continuous-control  
 
 cd requirements
 pip install .     
 ```
 
-#### Train the agent
+#### Train the agent with PPO algorithm
 ```
+cd ppo
 python run-training.py
-```
-
-![Scores][image2]
-
-#### Watch the smart agent playing
-```
-python run-smart-agent.py
 ```

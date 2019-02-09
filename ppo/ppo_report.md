@@ -1,0 +1,1 @@
+Final avg score for the 20 agents during training: Episode: 61 Current score: 37.94
