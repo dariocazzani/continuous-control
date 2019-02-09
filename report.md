@@ -54,7 +54,36 @@
 
 ## 2. Learning Algorithm
 
-blahblah
+  * ### Intro:
+    If we are doing supervised learning, we can have a static dataset. In this way we can be relative sure that aftert running a SGD optimizer on that data, we will converge to a decent local optima. <br>
+    The problem with RL is that the training data that is generated is itself dependent on the current policy because the agent is generating its own training data by interacting with the environment rather than relying on a static dataset.<br>
+    The data distributions over the observations and rewards are constanlty changin as the agent learns, and this is a cause for instability. <br>
+    Furthermore RL is very sensitive to hyperparameters tuning and initialization.<br>
+    To address this problems, a team at OpenAI designe an algorithm called **Proximal Policy Optimization**
+    
+  * ### Details:
+    **PPO** is a policy gradient method. This means that unilke other popular algorithms like DQN (that can learn from offline stored data), PPO learn online. <br>
+  It doesn't use a replay buffer to store past experiences, but instead it learns directly from what the agent encounters in the environment. <br>
+  Once the experience has been used to do a gradient update, the experience is discarded.
+  
+  * ### Vanilla Policy Gradient Algorithms:
+    A general polocu optimization method usually starts by defining a policy gradient loss as the expectation over the log of the policy actions, times an estimate of the advantage function.
+    * The agent's policy is a neural network that takes the observations from the environment as an input and suggests actions to take as output.
+    * The advantage function tries to estimate what the relative velu of the selected action is in the current state
+    
+  * ### Advantage function:
+    In order to copute the advantage function we need:
+    
+       * Discounted sum of rewards: it is a weighted sum of all the rewards the agent got at each time step during the current episode.
+       * Baseline or value function: it tries to give an estimate of the discounted sum of rewards from the current state onwards. <br>
+        Because this output is the output of a neural net, it's going to be a noisy estimate --> high variance.
+    
+    `Advangage function = discounted rewards -  baseline estimate`
+    <br>
+    The advantage function is answering the question: _How much better was the action that I took based on the expectation of what would normally happen in the state that I am currently in?_
+    <br>
+    By multiplying the log probability of the policy actions with the advantage function, we get the final optimization objecting that is used in policy gradient
+   
 
 
 ## 3. Plot of Rewards
