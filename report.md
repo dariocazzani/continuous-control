@@ -96,6 +96,14 @@
     This `KL` constraint adds some overhead and can sometimes lead to very undesirable trainig behavior.
     
   * ### PPO:
+    Let's first define:
+    ![r_theta](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/r_theta.png)
+    
+    which is the ratio between the new updated policy outputs and the outputs of the previous olf version of the policy network. <br>
+    So fiven a sequence of actions and states, the value if `r_theta` will be larger than 1 if the action is more likely now than it was in the old version of the policy, and less than 1 otherwise.<br>
+    Then if we multiply `r_theta` with the advantage function, we get the normal TRPO objecting in a more readable form.
+    
+  * ### The Main Objective Function:
     
 
 ## 3. Plot of Rewards
