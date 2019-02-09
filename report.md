@@ -104,7 +104,7 @@
     Then if we multiply `r_theta` with the advantage function, we get the normal TRPO objecting in a more readable form.
     
   * ### The Main Objective Function:
-    ![l_clip](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/L_clip.png)
+    ![l_clip](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/l_clip.png)
     
     This is an expectation. so we are going to compute it over batches of trajectories. <br>
     This expectation operator is taken over the minimum of 2 terms: `r_theta` and `r_theta, 1-eps, 1+eps`.
