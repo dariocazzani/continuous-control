@@ -104,8 +104,45 @@
     Then if we multiply `r_theta` with the advantage function, we get the normal TRPO objecting in a more readable form.
     
   * ### The Main Objective Function:
+    ![l_clip](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/L_clip.png)
     
-
+    This is an expectation. so we are going to compute it over batches of trajectories. <br>
+    This expectation operator is taken over the minimum of 2 terms: `r_theta` and `r_theta, 1-eps, 1+eps`.
+    
+    Let's understand the objective function by looking at the plot of the surrogate function `l_clip` function as a function of the probability ratio `r_theta`, for positive advantages (left) and negative advantages (right).
+    
+    ![surrogate_plot](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/surrogate_plot.png)
+    
+    On the left plot we see actions that yielded better than expected return, while on the righs side we see actions that yielded worse than expected return. <br>
+    On the left side the plot flattens out when `r` gets too high and this happens when the actions is a lot more likely under the current policy than it was under the old policy. <br>
+    In this case we don't want to overdo the action update too much and so the objective funtion gets clipped to limit the effect of the gradient update. <br>
+    Similarly, but with opposite signs, for the right side of the plot. <br>
+    
+    In other words: **The PPO Objective Function** does the same as the TRPO objective because it forces the policy updates to be conservative if they move very far away from the current policy.
+    
+  * ### The Algorithm End-to-End:
+    ![algo_ppo](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/algo_ppo.png)
+    
+    There are 2 alternating threads in PPO:
+      * With the first one (line `2` to `4`) the current policy is interacting with the environment generating episodes sequences for which we immediately calculate the advantage function using the fitted baseline estimate for the state values.
+      * Every so many episodes a second thread (line `6-7`) is going to collect all the experience amd run gradient descent on the policy network using the clipped PPO objective.
+      
+  * ### The Final Training Objective for PPO:
+    ![ppo_objective](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/ppo_objective.png)
+    
+    It's the sum of 3 terms:
+      * The clipped loss that we just discussed
+      * The second term os in charge of updating the baseline network. It's the part of the network that is in charge of estimating how good it is to be in this state, or more specifically what is the average amount of discounted reward that we expect to get from this point onward
+      * The last term is called **entropy term**. This term is in charge of making sure that the agent does enough exploration during training. <br>
+      In contrast to discrete action policies (that output the action choice probabilities), the PPO policy head outputs the parameters of a **Gaussian Distribution for each available action**.<br>
+      When running the agent in trainnig mode, the policy will sample from these distributions to get a continuous output value for each action.<br><br>
+      _Why does the entropy encourage exploration?_<br><br>
+      **The entropy of a stochastic variable, (which is driven by an underlying probability distribution) is the average amount of bits that is needed to represent the outcome.**<br><br>
+      It is a measure of how unpredictable an outcome of the variable is. So maximizing its entropy will force it to have a wide spread over all the possible options resulting in the most unpredictable outcome.
+    <br>
+    Finally, parameters `c1` and `c2` weigh the contributions of these different parts of the cost function
+      
+       
 ## 3. Plot of Rewards
 
    * **Training**: Training took 61 episodes to learn a policy that would receive an average score of **37.94** across all 20 agents
