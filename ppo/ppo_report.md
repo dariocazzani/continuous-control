@@ -61,4 +61,10 @@ blahblah
 
    * **Training**: Training took 61 episodes to learn a policy that would receive an average score of **37.94** across all 20 agents
    
+![Training](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/training.png)
+   
+   * **Testing**: I then ran 100 episodes using the learned policy to make sure that the average score meets the criteria:
+   
+![testing](https://github.com/dariocazzani/continuous-control/blob/master/ppo/images/test.png)
+     
    
