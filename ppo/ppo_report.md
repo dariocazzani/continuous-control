@@ -52,5 +52,13 @@
 -----------------------------
 
 
-     
-     Final avg score for the 20 agents during training: Episode: 61 Current score: 37.94
+## 2. Learning Algorithm
+
+blahblah
+
+
+## 3. Plot of Rewards
+
+   * **Training**: Training took 61 episodes to learn a policy that would receive an average score of **37.94** across all 20 agents
+   
+   
