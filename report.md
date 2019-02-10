@@ -46,8 +46,48 @@
 * ### Neural Network Architecture and hyperparameters
 
     For the **Architecture** I chose to use only fully connected layers.
+    It is defined in file `ppo/model.py`
+    
+    ``` python
+    class PPONetwork(nn.Module):
+    def __init__(self, args, state_size, num_actions):
+        super(PPONetwork, self).__init__() 
+        self.args = args
+
+        self.input_size = state_size
+        self.output_size = num_actions
+        self.hidden_units = self.args.hidden_units
+        self.device = self.args.device
+
+        # Common layers
+        self.linear1 = nn.Linear(self.input_size, self.hidden_units)
+        self.linear2 = nn.Linear(self.hidden_units, self.hidden_units)
+        
+        # Separate heads for actor and critic
+        self.actor_head = nn.Linear(self.hidden_units, self.output_size)
+        self.critic_head = nn.Linear(self.hidden_units, 1)
+
+        self.std = nn.Parameter(torch.ones(1, self.output_size))
+    
+    def forward(self, x, action=None):
+        x = F.relu(self.linear1(x))
+        x = F.relu(self.linear2(x))
+        
+        action_scores = self.actor_head(x)
+        state_values = self.critic_head(x)
+
+        dist = torch.distributions.Normal(action_scores, self.std)
+        if action is None:
+            action = dist.sample()
+        log_prob = dist.log_prob(action)
+        log_prob = torch.sum(log_prob, dim=1, keepdim=True)
+       
+        return action, log_prob, torch.zeros(log_prob.size(0), 1), state_values
+    ```
+    
     The structure is quite simple:
     Actor and Critic share the input layer (with `33` nodes in input and `512` hidden nodes), and the first hidden layer (with `512x512` hidden nodes).<br>
+    The activation function for the hidden layers is `ReLU`.
     The actor head then has `4 units` for the output (1 for each action), while the critic head's output is one scalar.
     <br>
     Below the structure of the net as printed by `PyTorch`
@@ -60,9 +100,7 @@
       (critic_head): Linear(in_features=512, out_features=1, bias=True)
     )  
     ```
-    <br>
-
-    The default **Hyperparameters** are dedined in `run-training.py` from line `19` to line `40`
+    The **Hyperparameters** are defined in `ppo/run-training.py` from line `19` to line `40`
 
     ``` python
     parser.add_argument('--discount-rate', type=float, default=0.99)
