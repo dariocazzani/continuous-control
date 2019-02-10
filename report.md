@@ -42,6 +42,42 @@
     ```
    
      * [x] **Finally at line `147` we play a round with the current policy and compute the total average for all agents.**
+
+* ### Neural Network Architecture and hyperparameters
+
+    For the **Architecture** I chose to use only fully connected layers.
+    The structure is quite simple:
+    Actor and Critic share the input layer (with `33` nodes in input and `512` hidden nodes), and the first hidden layer (with `512x512` hidden nodes).<br>
+    The actor head then has `4 units` for the output (1 for each action), while the critic head's output is one scalar.
+    <br>
+    Below the structure of the net as printed by `PyTorch`
+
+    ``` bash
+      PPONetwork(
+      (linear1): Linear(in_features=33, out_features=512, bias=True)
+      (linear2): Linear(in_features=512, out_features=512, bias=True)
+      (actor_head): Linear(in_features=512, out_features=4, bias=True)
+      (critic_head): Linear(in_features=512, out_features=1, bias=True)
+    )  
+    ```
+    <br>
+
+    The default **Hyperparameters** are dedined in `run-training.py` from line `19` to line `40`
+
+    ``` python
+    parser.add_argument('--discount-rate', type=float, default=0.99)
+    parser.add_argument('--tau', type=float, default=0.95)   
+    parser.add_argument('--gradient-clip', type=float, default=5)
+    parser.add_argument('--rollout-length', type=int, default=2048)    
+    parser.add_argument('--ppo-epochs', type=int, default=10)
+    parser.add_argument('--ppo-clip', type=float, default=2.0)
+    parser.add_argument('--batch-size', type=int, default=32)
+    parser.add_argument('--entropy-coefficent', type=float, default=1E-2)
+    parser.add_argument('--required-reward', type=float, default=30)
+    parser.add_argument('--learning-rate', type=float, default=3E-4)
+    parser.add_argument('--hidden-units', type=int, default=512)
+    ```
+
      
 * ### The repository includes functional, well-documented, and organized code for training the agent.
    * [x] **Check**
